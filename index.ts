@@ -1,57 +1,58 @@
 const prompts = require('prompts');
 const { readFileSync } = require('fs');
-const chalk = require('chalk')
+const chalk = require('chalk');
 
-const data = readFileSync('words.txt', 'utf8');
-const words = data.toString().split('\n');
-const randomIndex = Math.floor(Math.random() * words.length);
+const getMessage = (randomWord: string, guesses: Array<String>) => {
+	let message = guesses.map(word => {
+		const row = []
+		for (let i = 0; i < word.length; i++) {
+			let currentChar = word.charAt(i);
+			if (currentChar === randomWord.charAt(i)) row.push(chalk.bgGreen(currentChar))
+			else if (randomWord.includes(currentChar)) row.push(chalk.bgYellow(currentChar))
+			else row.push(chalk.bgGray(currentChar))
+		}
+		return row.join(' ')
+	});
+	
+	for (let i = 0; i < 5 - guesses.length; i++  ) {
+		let row = Array(5).fill(0).map(() => chalk.bgGray(' ')).join(' ');
+		message.push(row);
+	}
+	return '\n' + message.join('\n') + '\n';
+}
 
-let running = true;
-
-const round = async (randomWord: string, tries: Array<String>) => {
-	console.log(tries,tries.map(word => {
-			const row = []
-			for (let i = 0; i < word.length; i++) {
-				console.log(word, word.charAt(i), randomWord.charAt(i));
-
-				if (word.charAt(i) === randomWord.charAt(i)) row.push('🟩')
-				else if (randomWord.includes(word.charAt(i))) row.push('🟨')
-				else row.push('⬜️')
-			}
-			return row.join('')
-		}) );
-
+const round = async (randomWord: string, guesses: Array<String>, words: Array<String>) => {
 	const response = await prompts({
 		type: 'text',
 		name: 'guess',
-		message: tries.length < 1 ? '⬜️⬜️⬜️⬜️⬜️' : '\n' + tries.map(word => {
-			const row = []
-			for (let i = 0; i < word.length; i++) {
-				console.log(word, word.charAt(i), randomWord.charAt(i));
-
-				if (word.charAt(i) === randomWord.charAt(i)) row.push('🟩')
-				else if (randomWord.includes(word.charAt(i))) row.push('🟨')
-				else row.push('⬜️')
-			}
-			return row.join('')
-		}).join('\n'),
+		message: getMessage(randomWord, guesses),
 		validate: (guess: string) => words.includes(guess) ? true : 'invalid word'
 	});
-
-	console.log(response);
 	return response.guess
 }
 
 const game = async () => {
+
+	const data = readFileSync('words.txt', 'utf8');
+	const words = data.toString().split('\n');
+	const randomIndex = Math.floor(Math.random() * words.length);
+
 	const randomWord = words[randomIndex];
 	console.log(randomWord);
 
-	const tries: Array<String> = []
-	while (running) {
-		let guess: string = await round(randomWord, tries)
-		if (guess === randomWord) running = false;
-		else tries.push(guess)
-
+	const guesses: Array<String> = [];
+	let tries = 0;
+	while (true) {
+		let guess: string = await round(randomWord, guesses, words)
+		tries++;
+		if (guess === randomWord) {
+			console.log(chalk.green('Correct. The word was: ' + randomWord));
+			break;
+		} else if (tries > 5) {
+			console.log(chalk.red('Wrong. The word was: ' + randomWord));
+			break;
+		} else guesses.push(guess)
 	}
+
 }
 game();
